@@ -29,16 +29,21 @@ class PokerGame {
         this.smallBlind = 10;
         this.bigBlind = 20;
         this.minRaise = this.bigBlind;
+        
+        // 添加收益统计
+        this.totalProfit = 0;
+        this.roundProfit = 0;
+        this.initialChips = 1000;
     }
     
     // 初始化游戏
     init() {
         // 创建玩家（1个人类玩家，3个AI玩家）
         this.players = [
-            new Player(1, '玩家', PLAYER_TYPE.HUMAN, 1000, 0),
-            new AIPlayer(2, 'AI 1', 1000, 1),
-            new AIPlayer(3, 'AI 2', 1000, 2),
-            new AIPlayer(4, 'AI 3', 1000, 3)
+            new Player(1, '玩家', PLAYER_TYPE.HUMAN, this.initialChips, 0),
+            new AIPlayer(2, 'AI 1', this.initialChips, 1),
+            new AIPlayer(3, 'AI 2', this.initialChips, 2),
+            new AIPlayer(4, 'AI 3', this.initialChips, 3)
         ];
         
         // 设置玩家头像
@@ -56,6 +61,9 @@ class PokerGame {
     
     // 开始新一轮游戏
     startNewRound() {
+        // 重置本局收益
+        this.roundProfit = 0;
+        
         // 重置游戏状态
         this.resetGame();
         
@@ -401,16 +409,46 @@ class PokerGame {
         const winAmount = Math.floor(this.pot / this.winners.length);
         this.winners.forEach(winner => {
             winner.winChips(winAmount);
+            
+            // 如果赢家是人类玩家，计算收益
+            if (winner.type === PLAYER_TYPE.HUMAN) {
+                // 本局收益 = 赢得的筹码 - 本局投入的筹码
+                this.roundProfit = winAmount - winner.totalBet;
+                // 更新总收益
+                this.totalProfit += this.roundProfit;
+            }
         });
         
         // 处理可能的零头
         const remainder = this.pot - (winAmount * this.winners.length);
         if (remainder > 0) {
             this.winners[0].winChips(remainder);
+            if (this.winners[0].type === PLAYER_TYPE.HUMAN) {
+                this.roundProfit += remainder;
+                this.totalProfit += remainder;
+            }
         }
         
         // 清空奖池
         this.pot = 0;
+        
+        // 触发回合结束事件
+        EventBus.emit('roundEnd', {
+            roundProfit: this.roundProfit,
+            totalProfit: this.totalProfit,
+            remainingChips: this.getHumanPlayer().chips
+        });
+    }
+    
+    // 获取人类玩家
+    getHumanPlayer() {
+        return this.players.find(player => player.type === PLAYER_TYPE.HUMAN);
+    }
+    
+    // 检查游戏是否应该结束
+    checkGameOver() {
+        const humanPlayer = this.getHumanPlayer();
+        return humanPlayer.chips <= 0;
     }
     
     // 处理AI玩家回合

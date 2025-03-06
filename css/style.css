@@ -94,6 +94,73 @@ body {
     display: none !important;
 }
 
+/* 回合结束对话框样式 */
+#round-end-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #ffdd00;
+    color: white;
+    text-align: center;
+    z-index: 100;
+    min-width: 300px;
+}
+
+#round-end-dialog h2 {
+    color: #ffdd00;
+    margin-bottom: 15px;
+    font-size: 24px;
+}
+
+#round-stats {
+    margin: 15px 0;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+}
+
+#round-stats p {
+    margin: 5px 0;
+    font-size: 16px;
+}
+
+#round-stats .profit {
+    color: #4caf50;
+    font-weight: bold;
+    font-size: 20px;
+}
+
+#round-stats .loss {
+    color: #f44336;
+    font-weight: bold;
+    font-size: 20px;
+}
+
+#next-round-btn {
+    padding: 12px 30px;
+    font-size: 18px;
+    background-color: #388e3c;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: all 0.2s ease;
+}
+
+#next-round-btn:hover {
+    background-color: #4caf50;
+    transform: scale(1.05);
+}
+
+#next-round-btn:active {
+    transform: scale(0.98);
+}
+
 /* 开始对话框样式 */
 #start-dialog {
     position: fixed;

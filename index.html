@@ -22,6 +22,17 @@
             <h1>德州扑克 H5</h1>
             <button id="start-btn">开始游戏</button>
         </div>
+
+        <!-- 添加回合结束对话框 -->
+        <div id="round-end-dialog" class="hidden">
+            <h2>回合结束</h2>
+            <div id="round-stats">
+                <p>本局收益: <span id="round-profit">0</span></p>
+                <p>总收益: <span id="total-profit">0</span></p>
+                <p>剩余筹码: <span id="remaining-chips">1000</span></p>
+            </div>
+            <button id="next-round-btn">下一局</button>
+        </div>
     </div>
     
     <script src="js/utils.js"></script>

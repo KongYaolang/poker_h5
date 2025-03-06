@@ -10,12 +10,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     const controlsElement = document.getElementById('controls');
     const startDialogElement = document.getElementById('start-dialog');
     const startButton = document.getElementById('start-btn');
+    const roundEndDialogElement = document.getElementById('round-end-dialog');
+    const nextRoundButton = document.getElementById('next-round-btn');
     
     // 创建游戏实例
     const game = new PokerGame().init();
     
     // 创建UI实例
     const ui = new PokerUI(game, canvas);
+    
+    // 监听回合结束事件
+    EventBus.on('roundEnd', (data) => {
+        // 更新统计信息
+        document.getElementById('round-profit').textContent = formatProfit(data.roundProfit);
+        document.getElementById('round-profit').className = data.roundProfit >= 0 ? 'profit' : 'loss';
+        document.getElementById('total-profit').textContent = formatProfit(data.totalProfit);
+        document.getElementById('total-profit').className = data.totalProfit >= 0 ? 'profit' : 'loss';
+        document.getElementById('remaining-chips').textContent = data.remainingChips;
+        
+        // 显示回合结束对话框
+        roundEndDialogElement.classList.remove('hidden');
+        
+        // 禁用控制按钮
+        controlsElement.classList.add('hidden');
+    });
+    
+    // 绑定下一局按钮事件
+    nextRoundButton.addEventListener('click', () => {
+        // 检查游戏是否结束
+        if (game.checkGameOver()) {
+            // 游戏结束，显示开始对话框重新开始
+            startDialogElement.classList.remove('hidden');
+            roundEndDialogElement.classList.add('hidden');
+            // 重置游戏
+            game.init();
+        } else {
+            // 隐藏回合结束对话框
+            roundEndDialogElement.classList.add('hidden');
+            // 显示控制按钮
+            controlsElement.classList.remove('hidden');
+            // 开始新一轮
+            game.startNewRound();
+        }
+    });
     
     // 加载资源（但不播放音频）
     try {
@@ -54,6 +91,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadingElement.textContent = '加载失败，请刷新重试';
     }
 });
+
+// 格式化收益显示
+function formatProfit(profit) {
+    return profit >= 0 ? `+${profit}` : `${profit}`;
+}
 
 // 加载游戏资源但不播放音频
 async function loadGameAssets(ui) {
