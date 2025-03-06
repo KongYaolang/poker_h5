@@ -212,9 +212,21 @@ class PokerUI {
         
         players.forEach((player, index) => {
             // 计算玩家位置
-            const angle = (Math.PI * 2 / players.length) * index - Math.PI / 2;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
+            // 人类玩家固定在底部中间，AI玩家分布在上半圆
+            let angle, x, y;
+            
+            if (player.type === PLAYER_TYPE.HUMAN) {
+                // 人类玩家位置
+                x = centerX;
+                y = this.height - 120; // 距离底部120像素
+            } else {
+                // AI玩家位置，在上半圆均匀分布
+                const aiCount = players.filter(p => p.type === PLAYER_TYPE.AI).length;
+                const aiIndex = players.filter((p, i) => p.type === PLAYER_TYPE.AI && i < index).length;
+                angle = Math.PI * (0.2 + (0.6 * aiIndex / (aiCount - 1))); // 分布在0.2π到0.8π之间
+                x = centerX + Math.cos(angle) * radius;
+                y = centerY - Math.sin(angle) * radius * 0.8; // 压缩垂直高度
+            }
             
             // 绘制玩家头像
             this.drawPlayerAvatar(player, x, y);
@@ -244,21 +256,23 @@ class PokerUI {
     
     // 绘制玩家头像
     drawPlayerAvatar(player, x, y) {
+        const radius = player.type === PLAYER_TYPE.HUMAN ? 40 : 30; // 人类玩家头像更大
+        
         // 绘制头像背景
-        this.ctx.fillStyle = '#333';
+        this.ctx.fillStyle = player.type === PLAYER_TYPE.HUMAN ? '#1a237e' : '#333';
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 30, 0, Math.PI * 2);
+        this.ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
         this.ctx.fill();
         
         // 绘制头像
-        this.ctx.fillStyle = '#ddd';
+        this.ctx.fillStyle = player.type === PLAYER_TYPE.HUMAN ? '#3949ab' : '#ddd';
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 25, 0, Math.PI * 2);
+        this.ctx.arc(x, y, radius, 0, Math.PI * 2);
         this.ctx.fill();
         
         // 绘制玩家ID
-        this.ctx.fillStyle = '#333';
-        this.ctx.font = '16px Arial';
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = player.type === PLAYER_TYPE.HUMAN ? 'bold 18px Arial' : '16px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(player.name, x, y);
@@ -266,21 +280,23 @@ class PokerUI {
     
     // 绘制玩家信息
     drawPlayerInfo(player, x, y) {
+        const yOffset = player.type === PLAYER_TYPE.HUMAN ? 55 : 45;
+        
         // 绘制玩家筹码
         this.ctx.fillStyle = '#fff';
-        this.ctx.font = '14px Arial';
+        this.ctx.font = player.type === PLAYER_TYPE.HUMAN ? 'bold 16px Arial' : '14px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`${player.chips}`, x, y + 45);
+        this.ctx.fillText(`${player.chips}`, x, y + yOffset);
         
         // 绘制玩家状态
         if (player.status !== PLAYER_STATUS.ACTIVE) {
             this.ctx.fillStyle = player.status === PLAYER_STATUS.FOLDED ? '#ff4444' : '#ffaa00';
-            this.ctx.font = '12px Arial';
+            this.ctx.font = player.type === PLAYER_TYPE.HUMAN ? '14px Arial' : '12px Arial';
             this.ctx.fillText(
                 player.status === PLAYER_STATUS.FOLDED ? '弃牌' : 
                 player.status === PLAYER_STATUS.ALL_IN ? '全押' : '出局', 
-                x, y + 60
+                x, y + yOffset + 20
             );
         }
     }
@@ -289,9 +305,9 @@ class PokerUI {
     drawPlayerCards(player, x, y) {
         if (player.cards.length === 0) return;
         
-        const cardSpacing = 5;
+        const cardSpacing = player.type === PLAYER_TYPE.HUMAN ? 10 : 5;
         const startX = x - ((player.cards.length * this.cardWidth) + ((player.cards.length - 1) * cardSpacing)) / 2;
-        const startY = y - 80;
+        const startY = player.type === PLAYER_TYPE.HUMAN ? y - 120 : y - 80;
         
         player.cards.forEach((card, index) => {
             const cardX = startX + (this.cardWidth + cardSpacing) * index;
@@ -330,10 +346,23 @@ class PokerUI {
     
     // 绘制当前玩家高亮
     drawCurrentPlayerHighlight(x, y) {
+        const radius = this.ctx.type === PLAYER_TYPE.HUMAN ? 45 : 35;
+        
+        // 绘制外圈光晕
+        const gradient = this.ctx.createRadialGradient(x, y, radius, x, y, radius + 20);
+        gradient.addColorStop(0, 'rgba(255, 221, 0, 0.6)');
+        gradient.addColorStop(1, 'rgba(255, 221, 0, 0)');
+        
+        this.ctx.fillStyle = gradient;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, radius + 20, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // 绘制高亮边框
         this.ctx.strokeStyle = '#ffdd00';
         this.ctx.lineWidth = 3;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 35, 0, Math.PI * 2);
+        this.ctx.arc(x, y, radius, 0, Math.PI * 2);
         this.ctx.stroke();
     }
     
@@ -345,7 +374,7 @@ class PokerUI {
         const cardSpacing = 10;
         const totalWidth = (cards.length * this.cardWidth) + ((cards.length - 1) * cardSpacing);
         const startX = (this.width - totalWidth) / 2;
-        const startY = (this.height - this.cardHeight) / 2;
+        const startY = (this.height * 0.35); // 将公共牌移到画面上方35%的位置
         
         cards.forEach((card, index) => {
             const cardX = startX + (this.cardWidth + cardSpacing) * index;
@@ -362,7 +391,7 @@ class PokerUI {
         this.ctx.beginPath();
         this.ctx.roundRect(
             this.width / 2 - 50, 
-            this.height / 2 - 80, 
+            this.height * 0.25, // 将底池信息移到画面上方25%的位置
             100, 
             30, 
             5
@@ -374,7 +403,7 @@ class PokerUI {
         this.ctx.font = '16px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`底池: ${this.game.pot}`, this.width / 2, this.height / 2 - 65);
+        this.ctx.fillText(`底池: ${this.game.pot}`, this.width / 2, this.height * 0.25 + 15);
     }
     
     // 绘制游戏阶段
