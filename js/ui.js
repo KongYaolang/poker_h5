@@ -182,15 +182,15 @@ class PokerUI {
         
         // 绘制桌面边框
         const tableWidth = this.isLandscape ? this.width * 0.8 : this.width * 0.9;
-        const tableHeight = this.isLandscape ? this.height * 0.7 : this.height * 0.5;
+        const tableHeight = this.isLandscape ? this.height * 0.6 : this.height * 0.4; // 减小高度，向上移动
         const tableX = (this.width - tableWidth) / 2;
-        const tableY = (this.height - tableHeight) / 2;
+        const tableY = (this.height * 0.4 - tableHeight / 2); // 将桌子向上移动到40%的位置
         
         this.ctx.fillStyle = '#0d8048'; // 深绿色桌面
         this.ctx.beginPath();
         this.ctx.ellipse(
             this.width / 2, 
-            this.height / 2, 
+            this.height * 0.4, // 中心点向上移动
             tableWidth / 2, 
             tableHeight / 2, 
             0, 0, Math.PI * 2
@@ -207,8 +207,8 @@ class PokerUI {
     drawPlayers() {
         const players = this.game.players;
         const centerX = this.width / 2;
-        const centerY = this.height / 2;
-        const radius = Math.min(this.width, this.height) * 0.35;
+        const centerY = this.height * 0.4; // 中心点向上移动到40%的位置
+        const radius = Math.min(this.width, this.height) * 0.3; // 减小半径
         
         players.forEach((player, index) => {
             // 计算玩家位置
@@ -218,7 +218,7 @@ class PokerUI {
             if (player.type === PLAYER_TYPE.HUMAN) {
                 // 人类玩家位置
                 x = centerX;
-                y = this.height - 120; // 距离底部120像素
+                y = this.height - 150; // 距离底部150像素，为按钮留出空间
             } else {
                 // AI玩家位置，在上半圆均匀分布
                 const aiCount = players.filter(p => p.type === PLAYER_TYPE.AI).length;
@@ -237,10 +237,8 @@ class PokerUI {
             // 绘制玩家手牌
             this.drawPlayerCards(player, x, y);
             
-            // 绘制玩家下注
-            if (player.currentBet > 0) {
-                this.drawPlayerBet(player, x, y);
-            }
+            // 始终绘制玩家当前投注
+            this.drawPlayerBet(player, x, y);
             
             // 绘制庄家标记
             if (player.isDealer) {
@@ -317,17 +315,43 @@ class PokerUI {
     
     // 绘制玩家下注
     drawPlayerBet(player, x, y) {
-        // 绘制下注金额
-        this.ctx.fillStyle = '#ffdd00';
+        // 计算投注显示位置
+        let betX, betY;
+        
+        if (player.type === PLAYER_TYPE.HUMAN) {
+            betX = x;
+            betY = y - 30;
+        } else {
+            betX = x;
+            betY = y + 30;
+        }
+        
+        // 绘制总投注金额
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         this.ctx.beginPath();
-        this.ctx.arc(x, y - 20, 15, 0, Math.PI * 2);
+        this.ctx.roundRect(betX - 40, betY - 12, 80, 24, 12);
         this.ctx.fill();
         
-        this.ctx.fillStyle = '#333';
-        this.ctx.font = '12px Arial';
+        this.ctx.fillStyle = '#ffdd00';
+        this.ctx.font = 'bold 14px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`${player.currentBet}`, x, y - 20);
+        this.ctx.fillText(`投注: ${player.totalBet}`, betX, betY);
+        
+        // 如果有当前投注，显示当前投注
+        if (player.currentBet > 0) {
+            // 绘制当前投注金额
+            this.ctx.fillStyle = '#ffdd00';
+            this.ctx.beginPath();
+            this.ctx.arc(betX, betY - 30, 15, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            this.ctx.fillStyle = '#333';
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(`${player.currentBet}`, betX, betY - 30);
+        }
     }
     
     // 绘制庄家按钮
@@ -374,7 +398,7 @@ class PokerUI {
         const cardSpacing = 10;
         const totalWidth = (cards.length * this.cardWidth) + ((cards.length - 1) * cardSpacing);
         const startX = (this.width - totalWidth) / 2;
-        const startY = (this.height * 0.35); // 将公共牌移到画面上方35%的位置
+        const startY = (this.height * 0.3); // 将公共牌移到画面上方30%的位置
         
         cards.forEach((card, index) => {
             const cardX = startX + (this.cardWidth + cardSpacing) * index;
@@ -391,7 +415,7 @@ class PokerUI {
         this.ctx.beginPath();
         this.ctx.roundRect(
             this.width / 2 - 50, 
-            this.height * 0.25, // 将底池信息移到画面上方25%的位置
+            this.height * 0.2, // 将底池信息移到画面上方20%的位置
             100, 
             30, 
             5
@@ -403,7 +427,7 @@ class PokerUI {
         this.ctx.font = '16px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(`底池: ${this.game.pot}`, this.width / 2, this.height * 0.25 + 15);
+        this.ctx.fillText(`底池: ${this.game.pot}`, this.width / 2, this.height * 0.2 + 15);
     }
     
     // 绘制游戏阶段

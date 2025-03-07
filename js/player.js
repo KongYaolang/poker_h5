@@ -38,7 +38,7 @@ class Player {
         this.cards = [];
         this.status = this.chips > 0 ? PLAYER_STATUS.ACTIVE : PLAYER_STATUS.OUT;
         this.currentBet = 0;
-        this.totalBet = 0;
+        this.totalBet = 0; // 每局开始时重置总投注
         this.isCurrentPlayer = false;
         return this;
     }

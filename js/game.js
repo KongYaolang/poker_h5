@@ -209,6 +209,13 @@ class PokerGame {
                 return false;
         }
         
+        // 触发投注更新事件
+        EventBus.emit('betUpdate', {
+            playerId: currentPlayer.id,
+            currentBet: currentPlayer.currentBet,
+            totalBet: currentPlayer.totalBet
+        });
+        
         // 移动到下一个玩家
         this.moveToNextPlayer();
         
@@ -354,6 +361,7 @@ class PokerGame {
         this.minRaise = this.bigBlind;
         this.players.forEach(player => {
             player.currentBet = 0;
+            // 注意：不重置totalBet，因为我们需要显示每局的总投注
         });
     }
     

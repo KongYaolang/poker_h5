@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://h5-poker.netlify.app/sitemap.xml 
