@@ -5,44 +5,109 @@
 // 音频管理
 const AudioManager = {
     sounds: {},
+    enabled: true, // 是否启用音频
     
     // 加载音频文件
     load: function(name, path) {
         return new Promise((resolve, reject) => {
-            const audio = new Audio();
-            audio.src = path;
-            audio.addEventListener('canplaythrough', () => {
-                this.sounds[name] = audio;
-                resolve(audio);
-            }, { once: true });
-            audio.addEventListener('error', (err) => {
-                console.error(`Failed to load audio: ${path}`, err);
-                reject(err);
-            });
+            try {
+                const audio = new Audio();
+                
+                // 设置加载超时
+                const timeout = setTimeout(() => {
+                    console.warn(`Audio loading timeout: ${name}`);
+                    this.sounds[name] = null; // 标记为空但不阻止游戏
+                    resolve(null);
+                }, 5000);
+                
+                audio.preload = 'auto';
+                
+                // 成功加载
+                audio.addEventListener('canplaythrough', () => {
+                    clearTimeout(timeout);
+                    this.sounds[name] = audio;
+                    resolve(audio);
+                }, { once: true });
+                
+                // 加载错误
+                audio.addEventListener('error', (err) => {
+                    clearTimeout(timeout);
+                    console.error(`Failed to load audio: ${path}`, err);
+                    this.sounds[name] = null; // 标记为空但不阻止游戏
+                    resolve(null); // 使用resolve而不是reject，避免阻塞Promise.all
+                });
+                
+                // 开始加载
+                audio.src = path;
+                audio.load();
+            } catch (e) {
+                console.error('Audio API error:', e);
+                this.sounds[name] = null;
+                resolve(null);
+            }
         });
     },
     
     // 播放音频
     play: function(name) {
-        if (this.sounds[name]) {
-            // 克隆音频对象以允许重叠播放
-            if (name === 'deal') {
-                const clone = this.sounds[name].cloneNode();
-                clone.volume = 0.5;
-                clone.play();
-            } else {
-                this.sounds[name].currentTime = 0;
-                this.sounds[name].play().catch(err => console.warn('Audio play error:', err));
+        if (!this.enabled) return;
+        
+        try {
+            if (this.sounds[name]) {
+                // 克隆音频对象以允许重叠播放
+                if (name === 'deal') {
+                    const clone = this.sounds[name].cloneNode();
+                    clone.volume = 0.5;
+                    clone.play().catch(err => {
+                        console.warn('Audio play error:', err);
+                        // 如果自动播放被阻止，禁用音频
+                        if (err.name === 'NotAllowedError') {
+                            this.enabled = false;
+                        }
+                    });
+                } else {
+                    this.sounds[name].currentTime = 0;
+                    this.sounds[name].play().catch(err => {
+                        console.warn('Audio play error:', err);
+                        // 如果自动播放被阻止，禁用音频
+                        if (err.name === 'NotAllowedError') {
+                            this.enabled = false;
+                        }
+                    });
+                }
             }
+        } catch (e) {
+            console.error('Audio play error:', e);
         }
     },
     
     // 循环播放背景音乐
     playBackground: function(name) {
-        if (this.sounds[name]) {
-            this.sounds[name].loop = true;
-            this.sounds[name].volume = 0.3;
-            this.sounds[name].play().catch(err => console.warn('Background audio play error:', err));
+        if (!this.enabled) return;
+        
+        try {
+            if (this.sounds[name]) {
+                this.sounds[name].loop = true;
+                this.sounds[name].volume = 0.3;
+                
+                // 尝试播放背景音乐
+                const playPromise = this.sounds[name].play();
+                
+                // 处理播放承诺
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => {
+                        console.warn('Background audio play error:', err);
+                        // 如果自动播放被阻止，禁用音频
+                        if (err.name === 'NotAllowedError') {
+                            this.enabled = false;
+                            console.warn('Audio disabled due to autoplay restrictions');
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Background audio error:', e);
+            this.enabled = false;
         }
     }
 };

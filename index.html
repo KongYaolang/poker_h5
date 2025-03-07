@@ -18,11 +18,40 @@
     
     <!-- 样式表 -->
     <link rel="stylesheet" href="css/style.css">
+    
+    <!-- 错误处理脚本 -->
+    <script>
+        // 全局错误处理
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('全局错误:', message, 'at', source, lineno, colno);
+            
+            // 如果游戏加载时间过长，尝试自动隐藏加载提示
+            setTimeout(function() {
+                var loadingElement = document.getElementById('loading');
+                var startDialogElement = document.getElementById('start-dialog');
+                
+                if (loadingElement && !loadingElement.classList.contains('hidden')) {
+                    console.warn('检测到加载超时，强制显示开始界面');
+                    loadingElement.classList.add('hidden');
+                    if (startDialogElement) {
+                        startDialogElement.classList.remove('hidden');
+                    }
+                }
+            }, 8000); // 8秒后检查
+            
+            return false; // 让错误继续传播到控制台
+        };
+        
+        // 未处理的Promise拒绝处理
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('未处理的Promise拒绝:', event.reason);
+        });
+    </script>
 </head>
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
-        <div id="loading">加载中...</div>
+        <div id="loading">加载中...<span id="loading-progress"></span></div>
         <div id="controls" class="hidden">
             <button id="fold-btn">弃牌</button>
             <button id="check-btn">跟注</button>

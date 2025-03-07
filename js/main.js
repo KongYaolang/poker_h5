@@ -54,10 +54,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     
+    // 设置加载超时保障
+    const globalLoadingTimeout = setTimeout(() => {
+        console.warn('全局加载超时，强制启动游戏');
+        loadingElement.classList.add('hidden');
+        startDialogElement.classList.remove('hidden');
+        
+        // 绑定开始按钮事件
+        bindStartButton();
+    }, 15000); // 15秒全局超时
+    
     // 加载资源（但不播放音频）
     try {
         // 修改加载资源的方法，但不自动播放背景音乐
-        await loadGameAssets(ui);
+        const assetsLoaded = await loadGameAssets(ui);
+        
+        // 清除全局超时
+        clearTimeout(globalLoadingTimeout);
         
         // 隐藏加载提示
         loadingElement.classList.add('hidden');
@@ -66,29 +79,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         startDialogElement.classList.remove('hidden');
         
         // 绑定开始按钮事件
-        startButton.addEventListener('click', () => {
-            // 隐藏开始对话框
-            startDialogElement.classList.add('hidden');
-            
-            // 显示控制按钮
-            controlsElement.classList.remove('hidden');
-            
-            // 播放背景音乐（现在可以播放了，因为有了用户交互）
-            AudioManager.playBackground('bg');
-            
-            // 开始渲染循环
-            ui.startRenderLoop();
-            
-            // 开始游戏
-            game.startNewRound();
-            
-            // 绑定按钮事件
-            bindControls(game, ui);
-        });
+        bindStartButton();
         
     } catch (error) {
         console.error('Failed to load game assets:', error);
-        loadingElement.textContent = '加载失败，请刷新重试';
+        // 清除全局超时
+        clearTimeout(globalLoadingTimeout);
+        
+        // 即使加载失败，也尝试启动游戏
+        loadingElement.classList.add('hidden');
+        startDialogElement.classList.remove('hidden');
+        
+        // 绑定开始按钮事件
+        bindStartButton();
+    }
+    
+    // 绑定开始按钮事件的函数
+    function bindStartButton() {
+        // 移除之前可能存在的事件监听器
+        startButton.removeEventListener('click', startGameHandler);
+        // 添加新的事件监听器
+        startButton.addEventListener('click', startGameHandler);
+    }
+    
+    // 开始游戏的处理函数
+    function startGameHandler() {
+        // 隐藏开始对话框
+        startDialogElement.classList.add('hidden');
+        
+        // 显示控制按钮
+        controlsElement.classList.remove('hidden');
+        
+        // 尝试播放背景音乐（现在可以播放了，因为有了用户交互）
+        try {
+            AudioManager.playBackground('bg');
+        } catch (e) {
+            console.warn('无法播放背景音乐:', e);
+        }
+        
+        // 开始渲染循环
+        ui.startRenderLoop();
+        
+        // 开始游戏
+        game.startNewRound();
+        
+        // 绑定按钮事件
+        bindControls(game, ui);
     }
 });
 
@@ -100,12 +136,24 @@ function formatProfit(profit) {
 // 加载游戏资源但不播放音频
 async function loadGameAssets(ui) {
     try {
+        // 设置加载超时
+        const loadingTimeout = setTimeout(() => {
+            console.warn('资源加载超时，尝试继续游戏');
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('start-dialog').classList.remove('hidden');
+        }, 10000); // 10秒超时
+        
         // 加载卡牌图片
         const cardImagePromises = [];
         
         // 加载背面图片
         cardImagePromises.push(
             ImageLoader.loadImage('back', 'assets/cards/back.png')
+                .catch(err => {
+                    console.warn('Failed to load card back image, using fallback');
+                    // 创建一个文本替代图片
+                    return createFallbackCardImage('back', 'black');
+                })
         );
         
         // 加载所有牌面图片
@@ -117,51 +165,88 @@ async function loadGameAssets(ui) {
                         .catch(() => {
                             console.warn(`Failed to load card image: ${cardName}`);
                             // 创建一个文本替代图片
-                            const canvas = document.createElement('canvas');
-                            canvas.width = ui.cardWidth;
-                            canvas.height = ui.cardHeight;
-                            const ctx = canvas.getContext('2d');
-                            
-                            // 绘制卡牌背景
-                            ctx.fillStyle = 'white';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            ctx.strokeStyle = 'black';
-                            ctx.lineWidth = 2;
-                            ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
-                            
-                            // 绘制卡牌文本
-                            ctx.fillStyle = (suit === 'H' || suit === 'D') ? 'red' : 'black';
-                            ctx.font = 'bold 20px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(cardName, canvas.width / 2, canvas.height / 2);
-                            
-                            // 创建图片对象
-                            const img = new Image();
-                            img.src = canvas.toDataURL();
-                            ImageLoader.images[cardName] = img;
-                            return img;
+                            return createFallbackCardImage(cardName, (suit === 'H' || suit === 'D') ? 'red' : 'black');
                         })
                 );
             }
         }
         
-        // 加载音频（但不播放）
-        const audioPromises = [
-            AudioManager.load('deal', 'assets/sounds/deal.mp3')
-                .catch(() => console.warn('Failed to load deal sound')),
-            AudioManager.load('bg', 'assets/sounds/bg.mp3')
-                .catch(() => console.warn('Failed to load background music'))
-        ];
+        // 加载音频（但不播放）- 使用超时处理避免音频加载阻塞
+        // 注意：我们不再等待音频加载完成，而是设置一个短超时
+        // 这样即使音频文件有问题，也不会阻塞游戏启动
+        const audioPromises = [];
         
-        // 等待所有资源加载完成
-        await Promise.all([...cardImagePromises, ...audioPromises]);
+        // 尝试加载发牌音效，但设置很短的超时
+        audioPromises.push(
+            Promise.race([
+                AudioManager.load('deal', 'assets/sounds/deal.mp3'),
+                new Promise(resolve => setTimeout(() => {
+                    console.warn('Deal sound load timeout');
+                    resolve(null);
+                }, 1000)) // 只等待1秒
+            ]).catch(() => {
+                console.warn('Failed to load deal sound');
+                return null;
+            })
+        );
+        
+        // 尝试加载背景音乐，但设置较短的超时
+        audioPromises.push(
+            Promise.race([
+                AudioManager.load('bg', 'assets/sounds/bg.mp3'),
+                new Promise(resolve => setTimeout(() => {
+                    console.warn('Background music load timeout');
+                    resolve(null);
+                }, 3000)) // 等待3秒
+            ]).catch(() => {
+                console.warn('Failed to load background music');
+                return null;
+            })
+        );
+        
+        // 先等待图片加载完成
+        await Promise.all(cardImagePromises);
+        
+        // 不等待音频加载完成，只是启动加载过程
+        // 这样即使音频有问题，也不会阻塞游戏
+        
+        // 清除超时
+        clearTimeout(loadingTimeout);
         
         return true;
     } catch (error) {
         console.error('Error loading assets:', error);
-        return false;
+        // 即使加载失败，也允许游戏继续
+        return true;
     }
+}
+
+// 创建备用卡牌图片
+function createFallbackCardImage(cardName, color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 80; // 默认宽度
+    canvas.height = 120; // 默认高度
+    const ctx = canvas.getContext('2d');
+    
+    // 绘制卡牌背景
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+    
+    // 绘制卡牌文本
+    ctx.fillStyle = color;
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(cardName, canvas.width / 2, canvas.height / 2);
+    
+    // 创建图片对象
+    const img = new Image();
+    img.src = canvas.toDataURL();
+    ImageLoader.images[cardName] = img;
+    return img;
 }
 
 // 绑定控制按钮
